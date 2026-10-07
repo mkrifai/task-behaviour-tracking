@@ -157,6 +157,10 @@
   background: var(--accent-emerald);
 }
 
+.active-timer-hero.is-paused::before {
+  background: #f59e0b;
+}
+
 .timer-header {
   display: flex;
   align-items: center;
@@ -294,6 +298,13 @@
   font-weight: 600;
 }
 
+.routine-chip.is-paused {
+  border-color: #f59e0b;
+  background: rgba(245, 158, 11, 0.08);
+  color: #d97706;
+  font-weight: 600;
+}
+
 /* ==========================================================================
    Task List & Task Items (Clean & Mobile Friendly)
    ========================================================================== */
@@ -323,6 +334,11 @@
 .task-card.is-active {
   border-color: var(--accent-emerald);
   background: rgba(5, 150, 105, 0.03);
+}
+
+.task-card.is-paused {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(245, 158, 11, 0.03);
 }
 
 .task-card.is-done {

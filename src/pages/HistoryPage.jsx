@@ -29,7 +29,7 @@ export function HistoryPage({
   const sessionsByDay = {};
 
   sessions.forEach(sess => {
-    if (!sess.start) return;
+    if (!sess.start || !sess.end) return;
     const segments = splitSessionByLogicalDay(sess.start, sess.end, cutoffHour);
     segments.forEach(seg => {
       const d = seg.logicalDate;

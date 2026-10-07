@@ -12,6 +12,7 @@ import {
   getCategories,
   saveCategories,
   addCategory,
+  updateCategory,
   getTasks,
   saveTasks,
   addTask,
@@ -20,7 +21,10 @@ import {
   getSessions,
   saveSessions,
   startTaskSession,
+  pauseActiveSession,
+  resumeActiveSession,
   stopActiveSession,
+  cancelActiveSession,
   saveManualSession,
   deleteSession,
   getDaysMap,
@@ -48,6 +52,7 @@ export function App() {
 
   // Modals state
   const [isQuickCatOpen, setIsQuickCatOpen] = useState(false);
+  const [categoryToEdit, setCategoryToEdit] = useState(null);
   const [isCheckinOpen, setIsCheckinOpen] = useState(false);
   const [checkinTargetDate, setCheckinTargetDate] = useState('');
   const [isManualSessionOpen, setIsManualSessionOpen] = useState(false);
@@ -96,7 +101,23 @@ export function App() {
   };
 
   const handlePauseSession = () => {
+    pauseActiveSession();
+  };
+
+  const handleResumeSession = () => {
+    resumeActiveSession();
+  };
+
+  const handleCompleteSession = (taskId) => {
+    const targetTask = tasks.find(t => t.id === taskId);
     stopActiveSession();
+    if (targetTask && targetTask.type !== 'routine' && targetTask.status !== 'done') {
+      toggleTaskDone(taskId);
+    }
+  };
+
+  const handleCancelSession = () => {
+    cancelActiveSession();
   };
 
   const handleToggleDone = (taskId) => {
@@ -107,8 +128,24 @@ export function App() {
     deleteTask(taskId);
   };
 
-  const handleSaveQuickCategory = (catData) => {
-    addCategory(catData);
+  const handleOpenAddCategory = () => {
+    setCategoryToEdit(null);
+    setIsQuickCatOpen(true);
+  };
+
+  const handleOpenEditCategory = (cat) => {
+    setCategoryToEdit(cat);
+    setIsQuickCatOpen(true);
+  };
+
+  const handleSaveCategory = (catData) => {
+    if (catData.id) {
+      updateCategory(catData);
+    } else {
+      addCategory(catData);
+    }
+    setIsQuickCatOpen(false);
+    setCategoryToEdit(null);
   };
 
   const handleOpenCheckin = (dateStr) => {
@@ -147,7 +184,7 @@ export function App() {
           }
         }}
         activeTaskCount={activeTaskCount}
-        isTimerRunning={Boolean(activeSession)}
+        isTimerRunning={Boolean(activeSession && !activeSession.isPaused)}
       />
 
       <main className="main-content">
@@ -161,8 +198,11 @@ export function App() {
             onToggleDone={handleToggleDone}
             onStartSession={handleStartSession}
             onPauseSession={handlePauseSession}
+            onResumeSession={handleResumeSession}
+            onCompleteSession={handleCompleteSession}
+            onCancelSession={handleCancelSession}
             onDeleteTask={handleDeleteTask}
-            onOpenQuickCategory={() => setIsQuickCatOpen(true)}
+            onOpenQuickCategory={handleOpenAddCategory}
             onOpenManualSession={() => handleOpenManualSession()}
           />
         )}
@@ -202,7 +242,8 @@ export function App() {
             onSaveSettings={saveSettings}
             onAddTask={handleAddTask}
             onDeleteTask={handleDeleteTask}
-            onOpenQuickCategory={() => setIsQuickCatOpen(true)}
+            onOpenQuickCategory={handleOpenAddCategory}
+            onOpenEditCategory={handleOpenEditCategory}
           />
         )}
       </main>
@@ -210,8 +251,12 @@ export function App() {
       {/* Quick Category Modal */}
       <QuickCategoryModal
         isOpen={isQuickCatOpen}
-        onClose={() => setIsQuickCatOpen(false)}
-        onSave={handleSaveQuickCategory}
+        categoryToEdit={categoryToEdit}
+        onClose={() => {
+          setIsQuickCatOpen(false);
+          setCategoryToEdit(null);
+        }}
+        onSave={handleSaveCategory}
       />
 
       {/* Daily Check-in Modal */}

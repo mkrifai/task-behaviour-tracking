@@ -58,6 +58,13 @@ export function addCategory(category) {
   return newCat;
 }
 
+export function updateCategory(updatedCat) {
+  const current = getCategories();
+  const next = current.map(c => (c.id === updatedCat.id ? { ...c, ...updatedCat } : c));
+  saveCategories(next);
+  return updatedCat;
+}
+
 // ----------------------------------------------------
 // Tasks & Routines
 // ----------------------------------------------------
@@ -171,22 +178,28 @@ export function startTaskSession(taskId, categoryId) {
   const active = getActiveSession();
   if (active) {
     if (active.taskId === taskId) {
-      // Already running for this task
-      return active;
+      if (active.isPaused) {
+        resumeActiveSession();
+      }
+      return getActiveSession();
     }
-    // Auto-pause the previous active session!
+    // Stop/complete the previous active session!
     stopActiveSession();
   }
 
   // 2. Create new active session
   const sessions = getSessions();
+  const now = new Date().toISOString();
   const newSession = {
     id: 'ses-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
     taskId,
     categoryId,
-    start: new Date().toISOString(),
+    start: now,
     end: null,
-    source: 'timer'
+    source: 'timer',
+    isPaused: false,
+    accumulatedMs: 0,
+    lastResumeTime: now
   };
 
   saveSessions([newSession, ...sessions]);
@@ -194,17 +207,94 @@ export function startTaskSession(taskId, categoryId) {
 }
 
 /**
- * Stops / Pauses the currently active session
+ * Pauses the currently active running session without saving to history
  */
-export function stopActiveSession() {
+export function pauseActiveSession() {
+  const sessions = getSessions();
+  const now = new Date();
+  let updated = false;
+
+  const newSessions = sessions.map(s => {
+    if (s.end === null && !s.isPaused) {
+      updated = true;
+      const resumeTs = s.lastResumeTime ? new Date(s.lastResumeTime).getTime() : new Date(s.start).getTime();
+      const addMs = Math.max(0, now.getTime() - resumeTs);
+      return {
+        ...s,
+        isPaused: true,
+        pausedAt: now.toISOString(),
+        accumulatedMs: (s.accumulatedMs || 0) + addMs
+      };
+    }
+    return s;
+  });
+
+  if (updated) {
+    saveSessions(newSessions);
+  }
+}
+
+/**
+ * Resumes a paused active session
+ */
+export function resumeActiveSession() {
   const sessions = getSessions();
   const now = new Date().toISOString();
   let updated = false;
 
   const newSessions = sessions.map(s => {
+    if (s.end === null && s.isPaused) {
+      updated = true;
+      return {
+        ...s,
+        isPaused: false,
+        pausedAt: null,
+        lastResumeTime: now
+      };
+    }
+    return s;
+  });
+
+  if (updated) {
+    saveSessions(newSessions);
+  }
+}
+
+/**
+ * Cancels/discards the current active session completely
+ */
+export function cancelActiveSession() {
+  const sessions = getSessions();
+  const remaining = sessions.filter(s => s.end !== null);
+  saveSessions(remaining);
+}
+
+/**
+ * Finalizes and saves the active session into history
+ */
+export function stopActiveSession() {
+  const sessions = getSessions();
+  const now = new Date();
+  let updated = false;
+
+  const newSessions = sessions.map(s => {
     if (s.end === null) {
       updated = true;
-      return { ...s, end: now };
+      let totalMs = s.accumulatedMs || 0;
+      if (!s.isPaused) {
+        const resumeTs = s.lastResumeTime ? new Date(s.lastResumeTime).getTime() : new Date(s.start).getTime();
+        totalMs += Math.max(0, now.getTime() - resumeTs);
+      }
+      const endIso = now.toISOString();
+      const startIso = new Date(now.getTime() - totalMs).toISOString();
+      return {
+        ...s,
+        start: startIso,
+        end: endIso,
+        isPaused: false,
+        pausedAt: null,
+        lastResumeTime: null
+      };
     }
     return s;
   });

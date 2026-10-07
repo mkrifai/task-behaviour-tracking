@@ -8,15 +8,17 @@ export function TaskItem({
   totalDurationMs = 0, 
   sessionCount = 0,
   isActive = false, 
+  isPaused = false,
   onToggleDone, 
   onStart, 
   onPause, 
+  onResume,
   onDelete 
 }) {
   const isDone = task.status === 'done';
 
   return (
-    <div className={`task-card ${isActive ? 'is-active' : ''} ${isDone ? 'is-done' : ''}`}>
+    <div className={`task-card ${isActive ? (isPaused ? 'is-paused' : 'is-active') : ''} ${isDone ? 'is-done' : ''}`}>
       <div className="task-left">
         <button
           onClick={() => onToggleDone(task.id)}
@@ -42,10 +44,17 @@ export function TaskItem({
             </span>
 
             {isActive && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                <span className="pulse-dot" style={{ width: 6, height: 6 }} />
-                Sedang berjalan
-              </span>
+              isPaused ? (
+                <span style={{ fontSize: '0.75rem', color: '#d97706', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: '#f59e0b' }} />
+                  Dijeda
+                </span>
+              ) : (
+                <span style={{ fontSize: '0.75rem', color: 'var(--accent-emerald)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <span className="pulse-dot" style={{ width: 6, height: 6 }} />
+                  Sedang berjalan
+                </span>
+              )
             )}
           </div>
 
@@ -65,13 +74,23 @@ export function TaskItem({
       <div className="task-actions">
         {!isDone ? (
           isActive ? (
-            <button
-              onClick={() => onPause(task.id)}
-              className="action-icon-btn primary"
-              title="Pause sesi"
-            >
-              <Pause size={15} />
-            </button>
+            isPaused ? (
+              <button
+                onClick={() => onResume ? onResume(task.id) : onStart(task.id, task.categoryId)}
+                className="action-icon-btn primary"
+                title="Lanjutkan"
+              >
+                <Play size={15} fill="currentColor" />
+              </button>
+            ) : (
+              <button
+                onClick={() => onPause(task.id)}
+                className="action-icon-btn primary"
+                title="Pause sesi"
+              >
+                <Pause size={15} />
+              </button>
+            )
           ) : (
             <button
               onClick={() => onStart(task.id, task.categoryId)}

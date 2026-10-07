@@ -15,11 +15,25 @@ const PRESET_COLORS = [
   '#eab308', // Yellow
 ];
 
-export function QuickCategoryModal({ isOpen, onClose, onSave }) {
+export function QuickCategoryModal({ isOpen, onClose, onSave, categoryToEdit = null }) {
   const [code, setCode] = useState('');
   const [name, setName] = useState('');
   const [group, setGroup] = useState('work');
   const [color, setColor] = useState(PRESET_COLORS[0]);
+
+  React.useEffect(() => {
+    if (categoryToEdit) {
+      setCode(categoryToEdit.code || '');
+      setName(categoryToEdit.name || '');
+      setGroup(categoryToEdit.group || 'work');
+      setColor(categoryToEdit.color || PRESET_COLORS[0]);
+    } else {
+      setCode('');
+      setName('');
+      setGroup('work');
+      setColor(PRESET_COLORS[0]);
+    }
+  }, [categoryToEdit, isOpen]);
 
   if (!isOpen) return null;
 
@@ -28,14 +42,13 @@ export function QuickCategoryModal({ isOpen, onClose, onSave }) {
     if (!code.trim() || !name.trim()) return;
 
     onSave({
+      ...(categoryToEdit ? { id: categoryToEdit.id, order: categoryToEdit.order } : {}),
       code: code.trim().toUpperCase(),
       name: name.trim(),
       group,
       color,
     });
 
-    setCode('');
-    setName('');
     onClose();
   };
 
@@ -45,7 +58,7 @@ export function QuickCategoryModal({ isOpen, onClose, onSave }) {
         <div className="modal-header">
           <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Tag size={20} style={{ color: 'var(--accent-primary)' }} />
-            <span>Tambah Kategori Baru</span>
+            <span>{categoryToEdit ? 'Edit Kategori' : 'Tambah Kategori Baru'}</span>
           </div>
           <button onClick={onClose} className="action-icon-btn">
             <X size={18} />
@@ -145,7 +158,7 @@ export function QuickCategoryModal({ isOpen, onClose, onSave }) {
               Batal
             </button>
             <button type="submit" className="btn-primary">
-              Simpan Kategori
+              {categoryToEdit ? 'Simpan Perubahan' : 'Simpan Kategori'}
             </button>
           </div>
         </form>

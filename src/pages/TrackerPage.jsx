@@ -14,6 +14,9 @@ export function TrackerPage({
   onToggleDone,
   onStartSession,
   onPauseSession,
+  onResumeSession,
+  onCompleteSession,
+  onCancelSession,
   onDeleteTask,
   onOpenQuickCategory,
   onOpenManualSession
@@ -66,8 +69,10 @@ export function TrackerPage({
           activeSession={activeSession}
           task={activeTask}
           category={activeCategory}
-          onPause={() => onPauseSession(activeSession.taskId)}
-          onComplete={() => onToggleDone(activeSession.taskId)}
+          onPause={() => onPauseSession()}
+          onResume={() => onResumeSession()}
+          onComplete={() => onCompleteSession(activeSession.taskId)}
+          onCancel={() => onCancelSession()}
         />
       )}
 
@@ -78,7 +83,8 @@ export function TrackerPage({
           categories={categories}
           activeSession={activeSession}
           onStartRoutine={(rId, catId) => onStartSession(rId, catId)}
-          onPauseRoutine={(rId) => onPauseSession(rId)}
+          onPauseRoutine={() => onPauseSession()}
+          onResumeRoutine={() => onResumeSession()}
         />
       )}
 
@@ -174,9 +180,11 @@ export function TrackerPage({
                 totalDurationMs={taskDurationMap[task.id] || 0}
                 sessionCount={taskSessionCountMap[task.id] || 0}
                 isActive={activeSession?.taskId === task.id}
+                isPaused={activeSession?.taskId === task.id && Boolean(activeSession?.isPaused)}
                 onToggleDone={onToggleDone}
                 onStart={onStartSession}
-                onPause={onPauseSession}
+                onPause={() => onPauseSession()}
+                onResume={() => onResumeSession()}
                 onDelete={onDeleteTask}
               />
             ))}

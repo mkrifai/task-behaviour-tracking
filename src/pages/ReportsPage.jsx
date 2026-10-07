@@ -5,15 +5,17 @@ import {
 } from '../lib/reports';
 import { formatIndonesianMonth, getCurrentLogicalMonth } from '../lib/time';
 import { exportSessionsToCsv, exportMonthlySummaryToCsv } from '../lib/csv';
+import { exportMonthlyReportPdf } from '../lib/pdf';
 import { buildMonthlyPrompt, fetchGeminiMonthlyFeedback } from '../lib/ai';
 import { 
   ChevronLeft, 
   ChevronRight, 
   Download, 
+  FileText,
   Sparkles, 
   AlertCircle
 } from 'lucide-react';
-import { Doughnut, Bar } from 'react-chartjs-2';
+import { Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   ArcElement,
@@ -109,42 +111,106 @@ export function ReportsPage({
     }
   };
 
-  // Chart 1: Donut 24-Hour Average Day Composition
+  // Chart 1: Horizontal Bar - 24-Hour Average Day Composition
   const balanceChartData = {
     labels: ['Kerja', 'Keluarga', 'Diri Sendiri', 'Tidur', 'Istirahat Soft'],
     datasets: [
       {
+        label: 'Jam / Hari',
         data: [
-          report.avgDayComposition.workHours,
-          report.avgDayComposition.familyHours,
-          report.avgDayComposition.selfHours,
-          report.avgDayComposition.sleepHours,
-          report.avgDayComposition.softRestHours,
+          parseFloat(report.avgDayComposition.workHours.toFixed(1)),
+          parseFloat(report.avgDayComposition.familyHours.toFixed(1)),
+          parseFloat(report.avgDayComposition.selfHours.toFixed(1)),
+          parseFloat(report.avgDayComposition.sleepHours.toFixed(1)),
+          parseFloat(report.avgDayComposition.softRestHours.toFixed(1)),
         ],
         backgroundColor: [
           '#64748b',
           '#f472b6',
           '#34d399',
           '#a78bfa',
-          '#7dd3fc',
+          '#38bdf8',
         ],
-        borderWidth: 2,
-        borderColor: '#ffffff',
+        borderRadius: 4,
+        borderSkipped: false,
       }
     ]
   };
 
-  // Chart 2: Category Breakdown Donut
+  const horizontalBalanceOptions = {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (context) => ` ${context.parsed.x} jam / hari`
+        }
+      }
+    },
+    scales: {
+      x: {
+        beginAtZero: true,
+        grid: { color: '#f1f5f9' },
+        ticks: {
+          color: '#94a3b8',
+          callback: (val) => `${val}j`
+        }
+      },
+      y: {
+        grid: { display: false },
+        ticks: {
+          color: '#475569',
+          font: { family: 'Plus Jakarta Sans', size: 11, weight: '600' }
+        }
+      }
+    }
+  };
+
+  // Chart 2: Horizontal Bar - Category Breakdown
   const catChartData = {
     labels: report.rankedCategories.map(c => `[${c.code}] ${c.name}`),
     datasets: [
       {
+        label: 'Total Jam',
         data: report.rankedCategories.map(c => parseFloat(c.hours)),
-        backgroundColor: report.rankedCategories.map(c => c.color || '#94a3b8'),
-        borderWidth: 2,
-        borderColor: '#ffffff',
+        backgroundColor: report.rankedCategories.map(c => c.color || '#6366f1'),
+        borderRadius: 4,
+        borderSkipped: false,
       }
     ]
+  };
+
+  const horizontalCatOptions = {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (context) => ` ${context.parsed.x} jam (${report.rankedCategories[context.dataIndex]?.percentage}%)`
+        }
+      }
+    },
+    scales: {
+      x: {
+        beginAtZero: true,
+        grid: { color: '#f1f5f9' },
+        ticks: {
+          color: '#94a3b8',
+          callback: (val) => `${val}j`
+        }
+      },
+      y: {
+        grid: { display: false },
+        ticks: {
+          color: '#475569',
+          font: { family: 'Plus Jakarta Sans', size: 10.5, weight: '500' }
+        }
+      }
+    }
   };
 
   // Chart 3: Stacked Daily Trend across month
@@ -218,18 +284,20 @@ export function ReportsPage({
             onClick={() => exportSessionsToCsv({ sessions, tasks, categories, settings })}
             className="btn-secondary"
             style={{ fontSize: '0.78rem', padding: '6px 10px' }}
+            title="Unduh log sesi CSV"
           >
             <Download size={13} />
-            <span>Sesi</span>
+            <span>CSV</span>
           </button>
 
           <button
-            onClick={() => exportMonthlySummaryToCsv({ report, yearMonth: selectedMonth })}
-            className="btn-secondary"
-            style={{ fontSize: '0.78rem', padding: '6px 10px' }}
+            onClick={() => exportMonthlyReportPdf({ report, categories, settings, aiReport: cachedAiReport })}
+            className="btn-primary"
+            style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+            title="Unduh laporan bulanan lengkap dan refleksi AI dalam format PDF"
           >
-            <Download size={13} />
-            <span>Laporan</span>
+            <FileText size={13} />
+            <span>Unduh Laporan (PDF)</span>
           </button>
         </div>
       </div>
@@ -293,8 +361,8 @@ export function ReportsPage({
           <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-main)', marginBottom: '10px' }}>
             Komposisi 24 Jam
           </h3>
-          <div style={{ height: '190px', position: 'relative' }}>
-            <Doughnut data={balanceChartData} options={chartOptions} />
+          <div style={{ height: '200px', position: 'relative' }}>
+            <Bar data={balanceChartData} options={horizontalBalanceOptions} />
           </div>
         </div>
 
@@ -303,12 +371,12 @@ export function ReportsPage({
             Alokasi Kategori
           </h3>
           {report.rankedCategories.length === 0 ? (
-            <div style={{ height: '190px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontSize: '0.8rem' }}>
+            <div style={{ height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-dim)', fontSize: '0.8rem' }}>
               Belum ada data
             </div>
           ) : (
-            <div style={{ height: '190px', position: 'relative' }}>
-              <Doughnut data={catChartData} options={chartOptions} />
+            <div style={{ height: Math.max(200, report.rankedCategories.length * 32) + 'px', position: 'relative' }}>
+              <Bar data={catChartData} options={horizontalCatOptions} />
             </div>
           )}
         </div>

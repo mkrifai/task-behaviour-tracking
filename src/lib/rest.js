@@ -57,7 +57,32 @@ export function calculateDayBalance(
 
   const totalTrackedMs = workMs + familyMs + selfMs + uncategorizedMs;
 
-  // 2. Sleep duration (from day record if checked in, else default)
+  // 2. Determine day timeline: past, today, or future
+  const todayLogicalDate = getLogicalDateString(new Date(), cutoffHour);
+  const isToday = logicalDateStr === todayLogicalDate;
+  const isFuture = logicalDateStr > todayLogicalDate;
+
+  // If this date is in the future, it has not occurred yet.
+  if (isFuture) {
+    return {
+      logicalDate: logicalDateStr,
+      isToday: false,
+      isFuture: true,
+      checkedIn: false,
+      workMs: 0,
+      familyMs: 0,
+      selfMs: 0,
+      uncategorizedMs: 0,
+      totalTrackedMs: 0,
+      sleepMs: 0,
+      sleepBreakdown: { nightMin: 0, napMin: 0 },
+      softRestMs: 0,
+      availableMsForDay: 0,
+      segments: [],
+    };
+  }
+
+  // 3. Sleep duration
   const nightMin = dayRecord?.sleepNightMin !== undefined
     ? dayRecord.sleepNightMin
     : (sleepSettings.sleepNightMin ?? 300);
@@ -66,27 +91,29 @@ export function calculateDayBalance(
     ? dayRecord.sleepNapMin
     : (sleepSettings.sleepNapMin ?? 35);
 
-  const sleepMs = (nightMin + napMin) * 60 * 1000;
+  const baseSleepMs = (nightMin + napMin) * 60 * 1000;
 
-  // 3. Soft Rest calculation (24h - tracked - sleep)
-  const todayLogicalDate = getLogicalDateString(new Date(), cutoffHour);
-  const isToday = logicalDateStr === todayLogicalDate;
-
-  // For today, total day elapsed so far from cutoff:
+  // 4. Available hours and soft rest
   let availableMsForDay = DAY_MS;
+  let sleepMs = baseSleepMs;
+
   if (isToday) {
-    // Current time elapsed since cutoff hour
+    // Current time elapsed since cutoff hour (e.g. 04:00 AM)
     const now = Date.now();
     const [y, m, d] = logicalDateStr.split('-').map(Number);
     const dayStart = new Date(y, m - 1, d, cutoffHour, 0, 0, 0).getTime();
     availableMsForDay = Math.max(0, Math.min(DAY_MS, now - dayStart));
+
+    // Cap sleep to not exceed available time elapsed today
+    sleepMs = Math.min(availableMsForDay, baseSleepMs);
   }
 
-  const softRestMs = Math.max(0, availableMsForDay - totalTrackedMs - (isToday ? (sleepMs * (availableMsForDay / DAY_MS)) : sleepMs));
+  const softRestMs = Math.max(0, availableMsForDay - totalTrackedMs - sleepMs);
 
   return {
     logicalDate: logicalDateStr,
     isToday,
+    isFuture: false,
     checkedIn: Boolean(dayRecord?.checkedIn),
     workMs,
     familyMs,

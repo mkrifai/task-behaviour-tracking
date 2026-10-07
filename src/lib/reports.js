@@ -74,32 +74,39 @@ export function generateMonthlyReport({
         categoryTotals[catId].ms += seg.durationMs;
         categoryTotals[catId].sessionCount++;
       } else {
+        const matchingCat = categories.find(c => c.id === catId);
+        const taskOfSeg = taskMap[seg.taskId];
+        const resolvedName = matchingCat?.name || taskOfSeg?.description || 'Aktivitas Khusus';
+        const resolvedCode = matchingCat?.code || (resolvedName.length >= 3 ? resolvedName.slice(0, 3).toUpperCase() : 'AKT');
         categoryTotals[catId] = {
           id: catId,
-          code: 'OTHER',
-          name: 'Lainnya',
-          color: '#94a3b8',
-          group: 'work',
+          code: resolvedCode,
+          name: resolvedName,
+          color: matchingCat?.color || '#6366f1',
+          group: matchingCat?.group || 'work',
           ms: seg.durationMs,
           sessionCount: 1
         };
       }
     });
 
-    totalTrackedMonthMs += dayBalance.totalTrackedMs;
-    totalSleepMonthMs += dayBalance.sleepMs;
-    totalSoftRestMonthMs += dayBalance.softRestMs;
-    workMonthMs += dayBalance.workMs;
-    familyMonthMs += dayBalance.familyMs;
-    selfMonthMs += dayBalance.selfMs;
+    // Only accumulate non-future days
+    if (!dayBalance.isFuture) {
+      totalTrackedMonthMs += dayBalance.totalTrackedMs;
+      totalSleepMonthMs += dayBalance.sleepMs;
+      totalSoftRestMonthMs += dayBalance.softRestMs;
+      workMonthMs += dayBalance.workMs;
+      familyMonthMs += dayBalance.familyMs;
+      selfMonthMs += dayBalance.selfMs;
+    }
 
     dailyBreakdowns.push(dayBalance);
   }
 
-  // 2. Average 24h composition (normalize based on active days or days elapsed)
+  // 2. Average 24h composition (normalize strictly based on elapsed days)
   const isCurrentMonth = todayLogicalDate.startsWith(yearMonth);
   const currentDayNum = isCurrentMonth ? parseInt(todayLogicalDate.split('-')[2], 10) : numDaysInMonth;
-  const daysEvaluated = Math.max(1, currentDayNum);
+  const daysEvaluated = Math.max(1, isCurrentMonth ? currentDayNum : numDaysInMonth);
 
   const avgDayComposition = {
     workHours: (workMonthMs / daysEvaluated) / (3600 * 1000),
@@ -109,15 +116,16 @@ export function generateMonthlyReport({
     softRestHours: (totalSoftRestMonthMs / daysEvaluated) / (3600 * 1000),
   };
 
-  // 3. Category rankings & percentages
-  const rankedCategories = Object.values(categoryTotals)
-    .filter(c => c.ms > 0)
+  // 3. Category rankings: allCategories (includes 0h) and rankedCategories (>0h)
+  const allCategories = Object.values(categoryTotals)
     .sort((a, b) => b.ms - a.ms)
     .map(c => ({
       ...c,
-      percentage: totalTrackedMonthMs > 0 ? ((c.ms / totalTrackedMonthMs) * 100).toFixed(1) : 0,
+      percentage: totalTrackedMonthMs > 0 ? ((c.ms / totalTrackedMonthMs) * 100).toFixed(1) : '0.0',
       hours: (c.ms / (3600 * 1000)).toFixed(1)
     }));
+
+  const rankedCategories = allCategories.filter(c => c.ms > 0);
 
   // 4. Tasks completed in this month
   const tasksCompletedThisMonth = tasks.filter(t => {
@@ -153,6 +161,33 @@ export function generateMonthlyReport({
     .sort((a, b) => b.sessionCount - a.sessionCount)
     .slice(0, 5);
 
+  // 6. Complete month sessions
+  const monthSessions = sessions
+    .filter(s => {
+      if (!s.start) return false;
+      const lDate = getLogicalDateString(new Date(s.start), cutoffHour);
+      return lDate.startsWith(yearMonth);
+    })
+    .map(s => {
+      const task = taskMap[s.taskId];
+      const cat = catMap[s.categoryId] || categories.find(c => c.id === s.categoryId);
+      const startTs = new Date(s.start).getTime();
+      const endTs = s.end ? new Date(s.end).getTime() : startTs;
+      const durMs = Math.max(0, endTs - startTs);
+      return {
+        ...s,
+        taskDescription: task?.description || 'Aktivitas Mandiri',
+        taskType: task?.type || 'task',
+        taskStatus: task?.status || 'active',
+        categoryCode: cat?.code || (task?.description ? task.description.slice(0, 3).toUpperCase() : 'TGS'),
+        categoryName: cat?.name || 'Kategori Tugas',
+        categoryColor: cat?.color || '#6366f1',
+        categoryGroup: cat?.group || 'work',
+        durationMs: durMs
+      };
+    })
+    .sort((a, b) => new Date(b.start).getTime() - new Date(a.start).getTime());
+
   return {
     yearMonth,
     numDaysInMonth,
@@ -166,7 +201,9 @@ export function generateMonthlyReport({
     selfMonthMs,
     avgDayComposition,
     rankedCategories,
+    allCategories,
     dailyBreakdowns,
+    monthSessions,
     activeDaysCount,
     checkinDaysCount,
     tasksCompletedCount: tasksCompletedThisMonth.length,

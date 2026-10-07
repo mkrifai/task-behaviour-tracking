@@ -8,7 +8,8 @@ import {
   Trash2, 
   Plus, 
   Check, 
-  ShieldCheck
+  ShieldCheck,
+  Edit2
 } from 'lucide-react';
 import { exportAllDataJson, importAllDataJson } from '../lib/storage';
 
@@ -20,7 +21,8 @@ export function SettingsPage({
   onSaveSettings,
   onAddTask,
   onDeleteTask,
-  onOpenQuickCategory
+  onOpenQuickCategory,
+  onOpenEditCategory
 }) {
   const [cutoffHour, setCutoffHour] = useState(settings.cutoffHour ?? 4);
   const [sleepNightHours, setSleepNightHours] = useState(Math.floor((settings.sleepNightMin ?? 300) / 60));
@@ -116,7 +118,7 @@ export function SettingsPage({
 
           <button onClick={onOpenQuickCategory} className="btn-primary" style={{ padding: '5px 12px', fontSize: '0.78rem' }}>
             <Plus size={13} />
-            <span>+ Kategori</span>
+            <span>Kategori</span>
           </button>
         </div>
 
@@ -154,14 +156,24 @@ export function SettingsPage({
                 </div>
               </div>
 
-              <button
-                onClick={() => handleDeleteCategory(cat.id)}
-                className="action-icon-btn"
-                title="Hapus"
-                style={{ width: 28, height: 28 }}
-              >
-                <Trash2 size={13} />
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <button
+                  onClick={() => onOpenEditCategory?.(cat)}
+                  className="action-icon-btn"
+                  title="Edit Kategori"
+                  style={{ width: 28, height: 28 }}
+                >
+                  <Edit2 size={13} />
+                </button>
+                <button
+                  onClick={() => handleDeleteCategory(cat.id)}
+                  className="action-icon-btn"
+                  title="Hapus"
+                  style={{ width: 28, height: 28 }}
+                >
+                  <Trash2 size={13} />
+                </button>
+              </div>
             </div>
           ))}
         </div>

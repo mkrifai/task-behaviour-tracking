@@ -6,7 +6,8 @@ export function RoutineChips({
   categories = [], 
   activeSession, 
   onStartRoutine, 
-  onPauseRoutine
+  onPauseRoutine,
+  onResumeRoutine
 }) {
   const catMap = {};
   categories.forEach(c => { catMap[c.id] = c; });
@@ -17,30 +18,39 @@ export function RoutineChips({
         {routines.map(routine => {
           const cat = catMap[routine.categoryId];
           const isCurrentActive = activeSession && activeSession.taskId === routine.id;
+          const isPaused = isCurrentActive && activeSession.isPaused;
 
           return (
             <button
               key={routine.id}
               onClick={() => {
                 if (isCurrentActive) {
-                  onPauseRoutine(routine.id);
+                  if (isPaused) {
+                    onResumeRoutine ? onResumeRoutine(routine.id) : onStartRoutine(routine.id, routine.categoryId);
+                  } else {
+                    onPauseRoutine(routine.id);
+                  }
                 } else {
                   onStartRoutine(routine.id, routine.categoryId);
                 }
               }}
-              className={`routine-chip ${isCurrentActive ? 'is-active' : ''}`}
+              className={`routine-chip ${isCurrentActive ? (isPaused ? 'is-paused' : 'is-active') : ''}`}
             >
               <span 
                 style={{ 
                   width: 7, 
                   height: 7, 
                   borderRadius: '50%', 
-                  backgroundColor: cat?.color || '#cbd5e1' 
+                  backgroundColor: isPaused ? '#f59e0b' : (cat?.color || '#cbd5e1') 
                 }} 
               />
               <span>{routine.description}</span>
               {isCurrentActive ? (
-                <Pause size={12} style={{ color: 'var(--accent-emerald)', marginLeft: '2px' }} />
+                isPaused ? (
+                  <Play size={11} style={{ color: '#f59e0b', marginLeft: '2px' }} fill="#f59e0b" />
+                ) : (
+                  <Pause size={12} style={{ color: 'var(--accent-emerald)', marginLeft: '2px' }} />
+                )
               ) : (
                 <Play size={11} style={{ color: 'var(--text-dim)', marginLeft: '2px' }} />
               )}
